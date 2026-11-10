@@ -3,6 +3,7 @@
 #include <cmath>
 #include <algorithm>
 #include <vector>
+#include <fstream>
 
 const double S0 = 100.0;  // today's price
 const double r = 0.05;    // interest rate
@@ -48,8 +49,43 @@ double black_scholes_call()
     return C;
 }
 
+void write_paths(int num_paths, int num_steps, std::mt19937 &rng)
+{
+    std::ofstream file("paths.csv");
+    file << "path,step,price" << std::endl;
+    std::normal_distribution<double> z_dist(0.0, 1.0);
+    double dt = T / num_steps;
+
+    for (int p = 0; p < num_paths; p++)
+    {
+        double price = S0;
+        file << p << "," << 0 << "," << price << std::endl;
+
+        for (int s = 1; s <= num_steps; s++)
+        {
+            double Z = z_dist(rng);
+            price = price * std::exp((r - (sigma * sigma) / 2) * dt + sigma * std::sqrt(dt) * Z);
+            file << p << "," << s << "," << price << std::endl;
+        }
+    }
+}
+
+void write_final_prices(int N, std::mt19937 &rng)
+{
+    std::ofstream file("final_prices.csv");
+    file << "price" << std::endl;
+    std::normal_distribution<double> z_dist(0.0, 1.0);
+    for (int i = 0; i < N; i++)
+    {
+        double price = S0 * std::exp((r - ((sigma * sigma) / 2)) * T + sigma * std::sqrt(T) * z_dist(rng));
+        file << price << std::endl;
+    }
+}
+
 int main()
 {
+    std::ofstream file("convergence.csv");
+    file << "N,price,se" << std::endl;
     std::mt19937 rng(42);
     std::vector<int> sizes = {1000, 4000, 16000, 64000, 256000, 1024000};
     double C = black_scholes_call();
@@ -58,6 +94,9 @@ int main()
     {
         MCResult result = monte_carlo_call(N, rng);
         std::cout << N << "\t" << result.price << "\t" << result.se << "\t" << (result.price - C) / result.se << std::endl;
+        file << N << "," << result.price << "," << result.se << std::endl;
     }
+    write_paths(50, 252, rng);
+    write_final_prices(100000, rng);
     return 0;
 }
